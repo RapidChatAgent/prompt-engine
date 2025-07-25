@@ -19,8 +19,7 @@
 
 <script>
 // --------- Config: Folder path to your data files
-const GITHUB_DATA_RAW_PREFIX = "/";
-// Example:  https://raw.githubusercontent.com/username/repo/main/data/
+const GITHUB_DATA_RAW_PREFIX = "https://rapidchatagent.github.io/prompt-engine/data/";
 
 // --------- Get parameters from URL
 function getParams() {
