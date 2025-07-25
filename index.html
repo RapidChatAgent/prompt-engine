@@ -6,37 +6,53 @@
   <style>
     pre { font-family: ui-monospace, monospace; background: #f9f9f9; color: #222; border-radius: 6px; padding: 1em; }
     .error { color: #c00; font-family: ui-monospace, monospace; padding: 1em; }
-    .debug { font-size: 1em; font-family: ui-monospace, monospace; background: #fff4cd; border-radius: 6px; padding: 0.6em; color: #624700;}
-    .warn { background: #ffe4e0; color: #9b3939;}
-    .collapse-btn {
-      font-family: inherit;
-      background: #eee;
-      border: 1px solid #bbb;
-      color: #333;
+    .debug, .warn, .error-step {
+      font-family: ui-monospace, monospace;
       font-size: 1em;
-      padding: 0.25em 0.7em;
+      margin-bottom: 0.4em;
+      margin-top: 0.4em;
+      border-radius: 6px;
+      background: #fffbe5;
+      color: #543c11;
+      border: 1px solid #eee2b1;
+    }
+    .warn { background: #ffe4e0; color: #9b3939;border:1px solid #ffd2cb;}
+    .error-step { background: #ffeaea; color: #891818; border:1px solid #ffc1c1;}
+    .stephead {
+      font-family: inherit;
+      background: #f7f4e8;
+      border: 0;
+      color: #543c11;
+      font-size: 1em;
+      padding: 0.3em 0.8em 0.3em 0em;
       border-radius: 4px;
       cursor: pointer;
-      margin-bottom: 0.5em;
-      margin-top: 1em;
-      display:inline-block;
+      outline: none;
+      width:100%;
+      text-align: left;
+      margin-bottom: 0;
+      margin-top: 0;
+      display: flex;
+      align-items: center;
     }
-    #collapse-wrap {
-      border: 1px solid #ccc;
-      border-radius: 5px;
-      background: #faf8eb;
-      margin-bottom: 0.8em;
-      max-height: 500px;
-      overflow-y: auto;
-      transition: max-height 0.2s;
+    .arrow {
+      font-size:1.2em;
+      margin-right:0.3em;
+      transition: transform 0.1s;
+      user-select:none;
     }
-    #collapse-wrap.collapsed {
-      max-height: 0 !important;
-      overflow: hidden !important;
-      padding: 0 !important;
-      margin-bottom: 0 !important;
-      border: none;
-      background: none;
+    .stepbody {
+      display: none;
+      padding: 0 1em 0.75em 1.5em;
+    }
+    .collapsible.open .stepbody {
+      display: block;
+    }
+    .collapsible .arrow {
+      transform: rotate(0deg);
+    }
+    .collapsible.open .arrow {
+      transform: rotate(90deg);
     }
   </style>
 </head>
@@ -44,18 +60,49 @@
 <div id="log"></div>
 <div id="output"></div>
 <script>
-// Helper: output log visually and to console
-function stepLog(msg, data, kind="debug", logsArr) {
-  const html = `<div class="${kind}"><b>${msg}</b>${data!==undefined ? `<br><code>${escapeHtml(JSON.stringify(data,null,2))}</code>` : ''}</div>`;
-  if (logsArr) logsArr.push(html);
+// Unique id for collapse steps
+let stepId = 0;
 
-  if(kind==="error") console.error(msg, data);
-  else if(kind==="warn") console.warn(msg, data);
-  else if(kind==="result") console.info(msg, data);
-  else console.log(msg, data);
+// Helper for HTML-escaping
+function escapeHtml(str) {
+  return str.replace(/[<>&]/g, s => ({"<":"&lt;","&": "&amp;",">":"&gt;"}[s]));
 }
 
-// Parse parameters in order
+// Helper: output log (collapsible per step) and to console
+function stepLog(msg, data, kind="debug", logsArr) {
+  stepId++;
+  const currentId = "step_collapse_" + stepId;
+  const classKind = kind==="warn" ? "warn" : kind==="error"||kind==="error-step" ? "error-step" : "debug";
+  const arrow = `<span class="arrow">&#9654;</span>`; // triangle
+
+  let shortMsg = msg.split("<br>")[0];
+  let extraMsg = msg.split("<br>").slice(1).join("<br>");
+  let codeHtml = data !== undefined ? `<pre>${escapeHtml(JSON.stringify(data,null,2))}</pre>` : "";
+
+  let bodyHtml = "";
+  if (extraMsg || codeHtml) bodyHtml =
+    `<div class="stepbody">${extraMsg ? `<div>${extraMsg}</div>` : ""}${codeHtml}</div>`;
+
+  const block = `<div class="collapsible ${classKind}" id="${currentId}">
+    <button class="stephead" type="button" onclick="toggleStep('${currentId}')">${arrow}${shortMsg}</button>
+    ${bodyHtml}
+  </div>`;
+
+  if (logsArr) logsArr.push(block);
+
+  // always log to the browser console
+  if(kind==="error"||kind==="error-step") console.error(shortMsg, data);
+  else if(kind==="warn") console.warn(shortMsg, data);
+  else if(kind==="result") console.info(shortMsg, data);
+  else console.log(shortMsg, data);
+}
+
+window.toggleStep = function(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.toggle('open');
+};
+
 function getOrderedParams() {
   const urlParams = [];
   const q = window.location.search.substring(1);
@@ -67,7 +114,6 @@ function getOrderedParams() {
   return urlParams;
 }
 
-// Query with logging-to-array
 function queryByParamChain(data, orderedParams, logsArr) {
   stepLog(`[Step 0][ROOT] Loaded data:`, data, "debug", logsArr);
 
@@ -79,8 +125,8 @@ function queryByParamChain(data, orderedParams, logsArr) {
   let pathDisplay = [];
 
   steps.forEach(([key, val], stepIdx) => {
-    let msg = `[Step ${stepIdx + 1}] Path so far: ${pathDisplay.join('.') || '[root]'} | Param: [${key}${val===true?'':('='+val)}]`;
-    stepLog(`${msg}<br>Current value/type:`, cursor, "debug", logsArr);
+    let msg = `[Step ${stepIdx + 1}] Path: ${pathDisplay.join('.') || '[root]'} | Param: [${key}${val===true?'':('='+val)}]<br>Current value/type:`;
+    stepLog(msg, cursor, "debug", logsArr);
 
     if (Array.isArray(cursor)) {
       if (/^\d+$/.test(val === true ? key : val)) {
@@ -96,7 +142,7 @@ function queryByParamChain(data, orderedParams, logsArr) {
         cursor = filtered;
         pathDisplay.push(`${key}=${val}`);
       } else {
-        stepLog(`-- [Error] Cannot use property "${key}" with no value on array!`, cursor, "error", logsArr);
+        stepLog(`-- [Error] Cannot use property "${key}" with no value on array!`, cursor, "error-step", logsArr);
         cursor = undefined;
       }
     } else if (cursor && typeof cursor === 'object') {
@@ -109,7 +155,7 @@ function queryByParamChain(data, orderedParams, logsArr) {
         cursor = undefined;
       }
     } else {
-      stepLog(`-- [FAIL] Cannot process param "${key}" on type: ${typeof cursor} (${String(cursor)})`, cursor, "error", logsArr);
+      stepLog(`-- [FAIL] Cannot process param "${key}" on type: ${typeof cursor} (${String(cursor)})`, cursor, "error-step", logsArr);
       cursor = undefined;
     }
     stepLog(`[Step ${stepIdx + 1}] Result after applying param:`, cursor, "debug", logsArr);
@@ -118,25 +164,10 @@ function queryByParamChain(data, orderedParams, logsArr) {
   return cursor;
 }
 
-function escapeHtml(str) {
-  return str.replace(/[<>&]/g, s => ({"<":"&lt;","&": "&amp;",">":"&gt;"}[s]));
-}
-
-// Simple toggling for collapse
-function makeCollapse(logHTML) {
-  return `
-    <button class="collapse-btn" onclick="
-      var c=document.getElementById('collapse-wrap');
-      c.classList.toggle('collapsed');
-      this.textContent = c.classList.contains('collapsed')? '[+] Show Debug Trace':'[-] Hide Debug Trace';
-    ">[+] Show Debug Trace</button>
-    <div id="collapse-wrap" class="collapsed">${logHTML}</div>
-  `;
-}
-
 async function main() {
   document.getElementById("log").innerHTML = "";
   document.getElementById("output").innerHTML = "";
+  stepId = 0;
   const orderedParams = getOrderedParams();
   const fileParam = orderedParams.find(([k]) => k === 'file');
   if (!fileParam) {
@@ -165,8 +196,8 @@ async function main() {
     return;
   }
   if (result === undefined) {
-    // On error, show debug logs in collapsible
-    document.getElementById("log").innerHTML = makeCollapse(logsArr.join(""));
+    // On error, show debug logs, each step collapsible
+    document.getElementById("log").innerHTML = logsArr.join("");
     const q = orderedParams.filter(([k]) => k !== 'file').map(([k,v]) => v === true ? k : `${k}=${v}`).join("&");
     document.getElementById("output").innerHTML = `<div class="error">Segment not found for query: <code>${q}</code></div>`;
   } else {
