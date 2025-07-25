@@ -1,9 +1,6 @@
 # prompt-engine
 
 
-Certainly! Below is a **Usage** section you can add to your README under "How to Use" or "Examples", with example API URLs, example responses, and explanation of how the tool works as a **read-only segmented API**.
-
----
 
 ## 📖 Example API Calls
 
@@ -130,8 +127,3 @@ GET https://rapidchatagent.github.io/prompt-engine/data?file=users&path=users[id
 | Find by id in array        | https://rapidchatagent.github.io/prompt-engine/data?file=users&path=[id=2].address.city                                    | `"Boston"`                 |
 | File not found             | https://rapidchatagent.github.io/prompt-engine/data?file=notfound                                                          | Error message              |
 | Segment not found          | https://rapidchatagent.github.io/prompt-engine/data?file=users&path=doesnot.exist                                          | Error message              |
-
----
-
-**You can copy-paste this section under your README's usage or as a dedicated section "Example API Calls".**  
-Let me know if you want the HTML tweaked to return pure JSON (`application/json`), or more real-world examples!
