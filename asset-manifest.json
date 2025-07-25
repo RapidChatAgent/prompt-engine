@@ -1,0 +1,10 @@
+{
+  "files": {
+    "main.js": "/prompt-engine/static/js/main.e932d37a.js",
+    "index.html": "/prompt-engine/index.html",
+    "main.e932d37a.js.map": "/prompt-engine/static/js/main.e932d37a.js.map"
+  },
+  "entrypoints": [
+    "static/js/main.e932d37a.js"
+  ]
+}
