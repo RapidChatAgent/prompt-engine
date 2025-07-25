@@ -6,7 +6,8 @@
   <style>
     pre { font-family: ui-monospace, monospace; background: #f9f9f9; color: #222; border-radius: 6px; padding: 1em; }
     .error { color: #c00; font-family: ui-monospace, monospace; padding: 1em; }
-    .debug { font-size: 1em; font-family: ui-monospace, monospace; margin-bottom: 1em; background: #fff4cd; border-radius: 6px; padding: 0.6em; color: #624700; }
+    .debug { font-size: 1em; font-family: ui-monospace, monospace; background: #fff4cd; border-radius: 6px; padding: 0.6em; color: #624700;}
+    .warn { background: #ffe4e0; color: #9b3939;}
     .result { margin-top: 1.5em; }
   </style>
 </head>
@@ -15,10 +16,14 @@
 <div id="output"></div>
 <script>
 // Helper: output log visually and to console
-function stepLog(msg, data, kind="debug") {
+function stepLog(msg, data, kind="debug", logsArr) {
   const html = `<div class="${kind}"><b>${msg}</b>${data!==undefined ? `<br><code>${escapeHtml(JSON.stringify(data,null,2))}</code>` : ''}</div>`;
-  document.getElementById("log").insertAdjacentHTML('beforeend', html);
-  kind==="error" ? console.error(msg, data) : kind==="warn" ? console.warn(msg, data) : console.log(msg, data);
+  if (logsArr) logsArr.push(html); // only collect to buffer, not always display
+
+  if(kind==="error") console.error(msg, data);
+  else if(kind==="warn") console.warn(msg, data);
+  else if(kind==="result") console.info(msg, data);
+  else console.log(msg, data);
 }
 
 // Parse parameters in order
@@ -33,9 +38,9 @@ function getOrderedParams() {
   return urlParams;
 }
 
-// Query step-by-step, log all
-function queryByParamChain(data, orderedParams) {
-  stepLog(`[Step 0][ROOT] Loaded data:`, data);
+// Query with logging-to-array
+function queryByParamChain(data, orderedParams, logsArr) {
+  stepLog(`[Step 0][ROOT] Loaded data:`, data, "debug", logsArr);
 
   const fileParam = orderedParams.find(([k]) => k === 'file');
   if (!fileParam) throw new Error("Missing 'file' parameter");
@@ -46,45 +51,41 @@ function queryByParamChain(data, orderedParams) {
 
   steps.forEach(([key, val], stepIdx) => {
     let msg = `[Step ${stepIdx + 1}] Path so far: ${pathDisplay.join('.') || '[root]'} | Param: [${key}${val===true?'':('='+val)}]`;
-    stepLog(`${msg}<br>Current value/type:`, cursor);
-    // Navigation
+    stepLog(`${msg}<br>Current value/type:`, cursor, "debug", logsArr);
+
     if (Array.isArray(cursor)) {
-      // Index into array
       if (/^\d+$/.test(val === true ? key : val)) {
         const idx = Number(val === true ? key : val);
-        stepLog(`-- Array index [${idx}]`, cursor[idx]);
+        stepLog(`-- Array index [${idx}]`, cursor[idx], "debug", logsArr);
         cursor = cursor[idx];
         pathDisplay.push(String(idx));
       }
-      // Filter array
       else if (val !== true) {
-        stepLog(`-- Array filter: "${key}==${val}"`, undefined);
-        const prevCursor = cursor;
+        stepLog(`-- Array filter: "${key}==${val}"`, undefined, "debug", logsArr);
         const filtered = cursor.find(item => item && String(item[key]) === val);
-        if (!filtered) stepLog(`[Warning] Array filter "${key}=${val}" not found!`, prevCursor, "warn");
+        if (!filtered) stepLog(`[Warning] Array filter "${key}=${val}" not found!`, cursor, "warn", logsArr);
         cursor = filtered;
         pathDisplay.push(`${key}=${val}`);
       } else {
-        stepLog(`-- [Error] Cannot use property "${key}" with no value on array!`, cursor, "error");
+        stepLog(`-- [Error] Cannot use property "${key}" with no value on array!`, cursor, "error", logsArr);
         cursor = undefined;
       }
     } else if (cursor && typeof cursor === 'object') {
       if (key in cursor) {
-        stepLog(`-- Object property "${key}"`, cursor[key]);
+        stepLog(`-- Object property "${key}"`, cursor[key], "debug", logsArr);
         cursor = cursor[key];
         pathDisplay.push(key);
       } else {
-        stepLog(`-- [FAIL] Property "${key}" not found in object. Keys: ${Object.keys(cursor).join(", ")}`, cursor, "warn");
+        stepLog(`-- [FAIL] Property "${key}" not found in object. Keys: ${Object.keys(cursor).join(", ")}`, cursor, "warn", logsArr);
         cursor = undefined;
       }
     } else {
-      stepLog(`-- [FAIL] Cannot process param "${key}" on type: ${typeof cursor} (${String(cursor)})`, cursor, "error");
+      stepLog(`-- [FAIL] Cannot process param "${key}" on type: ${typeof cursor} (${String(cursor)})`, cursor, "error", logsArr);
       cursor = undefined;
     }
-    stepLog(`[Step ${stepIdx + 1}] Result after applying param:`, cursor);
+    stepLog(`[Step ${stepIdx + 1}] Result after applying param:`, cursor, "debug", logsArr);
   });
-  
-  stepLog(`==== END QUERY / FINAL VALUE ====`, cursor, cursor !== undefined ? "result" : "warn");
+  stepLog(`==== END QUERY / FINAL VALUE ====`, cursor, cursor !== undefined ? "result" : "warn", logsArr);
   return cursor;
 }
 
@@ -98,7 +99,7 @@ async function main() {
   const orderedParams = getOrderedParams();
   const fileParam = orderedParams.find(([k]) => k === 'file');
   if (!fileParam) {
-    document.getElementById("output").innerHTML = '<div class="error">Missing <code>file</code> parameter in URL.</div>';
+    document.getElementById("log").innerHTML = '<div class="error">Missing <code>file</code> parameter in URL.</div>';
     return;
   }
   const fileValue = fileParam[1];
@@ -108,22 +109,28 @@ async function main() {
     const res = await fetch(jsonUrl);
     if (!res.ok) throw new Error("404");
     jsonData = await res.json();
-    stepLog(`[Loaded JSON] from "${jsonUrl}"`, jsonData);
+    // Optionally, log to console: what file was loaded
+    console.log(`[Loaded JSON] from "${jsonUrl}"`, jsonData);
   } catch {
-    document.getElementById("output").innerHTML = `<div class="error">File not found or fetch failed. Attempted URL: <code>${jsonUrl}</code></div>`;
+    document.getElementById("log").innerHTML = `<div class="error">File not found or fetch failed. Attempted URL: <code>${jsonUrl}</code></div>`;
     return;
   }
+  let logsArr = [];
   let result;
   try {
-    result = queryByParamChain(jsonData, orderedParams);
+    result = queryByParamChain(jsonData, orderedParams, logsArr);
   } catch (e) {
-    document.getElementById("output").innerHTML = `<div class="error">Parse error: <code>${e.message}</code></div>`;
+    document.getElementById("log").innerHTML = `<div class="error">Parse error: <code>${e.message}</code></div>`;
     return;
   }
   if (result === undefined) {
-    const q = orderedParams.filter(([k]) => k !== 'file').map(([k,v]) => v === true ? k : `${k}=${v}`).join("→");
+    // On error, show all debugging logs
+    document.getElementById("log").innerHTML = logsArr.join("");
+    const q = orderedParams.filter(([k]) => k !== 'file').map(([k,v]) => v === true ? k : `${k}=${v}`).join("&");
     document.getElementById("output").innerHTML = `<div class="error">Segment not found for query: <code>${q}</code></div>`;
   } else {
+    // If result, show ONLY the answer
+    document.getElementById("log").innerHTML = '';
     document.getElementById("output").innerHTML = `<pre>${escapeHtml(JSON.stringify(result, null, 2))}</pre>`;
   }
 }
