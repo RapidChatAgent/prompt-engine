@@ -2,15 +2,26 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>JSON Query Result by Params</title>
+  <title>JSON Param Query Debugger</title>
   <style>
     pre { font-family: ui-monospace, monospace; background: #f9f9f9; color: #222; border-radius: 6px; padding: 1em; }
-    .error { color: #c00; font-family: ui-monospace, monospace; }
+    .error { color: #c00; font-family: ui-monospace, monospace; padding: 1em; }
+    .debug { font-size: 1em; font-family: ui-monospace, monospace; margin-bottom: 1em; background: #fff4cd; border-radius: 6px; padding: 0.6em; color: #624700; }
+    .result { margin-top: 1.5em; }
   </style>
 </head>
 <body>
+<div id="log"></div>
+<div id="output"></div>
 <script>
-// --- Parse parameters in order of appearance ---
+// Helper: output log visually and to console
+function stepLog(msg, data, kind="debug") {
+  const html = `<div class="${kind}"><b>${msg}</b>${data!==undefined ? `<br><code>${escapeHtml(JSON.stringify(data,null,2))}</code>` : ''}</div>`;
+  document.getElementById("log").insertAdjacentHTML('beforeend', html);
+  kind==="error" ? console.error(msg, data) : kind==="warn" ? console.warn(msg, data) : console.log(msg, data);
+}
+
+// Parse parameters in order
 function getOrderedParams() {
   const urlParams = [];
   const q = window.location.search.substring(1);
@@ -22,49 +33,72 @@ function getOrderedParams() {
   return urlParams;
 }
 
-// --- Query JSON by sequential params ---
+// Query step-by-step, log all
 function queryByParamChain(data, orderedParams) {
-  // Find 'file' param and validate
+  stepLog(`[Step 0][ROOT] Loaded data:`, data);
+
   const fileParam = orderedParams.find(([k]) => k === 'file');
   if (!fileParam) throw new Error("Missing 'file' parameter");
-  // Remove 'file' for traversal
   const steps = orderedParams.filter(([k]) => k !== 'file');
 
   let cursor = data;
-  for (const [key, val] of steps) {
+  let pathDisplay = [];
+
+  steps.forEach(([key, val], stepIdx) => {
+    let msg = `[Step ${stepIdx + 1}] Path so far: ${pathDisplay.join('.') || '[root]'} | Param: [${key}${val===true?'':('='+val)}]`;
+    stepLog(`${msg}<br>Current value/type:`, cursor);
+    // Navigation
     if (Array.isArray(cursor)) {
-      // If param is a number: index into array
+      // Index into array
       if (/^\d+$/.test(val === true ? key : val)) {
         const idx = Number(val === true ? key : val);
+        stepLog(`-- Array index [${idx}]`, cursor[idx]);
         cursor = cursor[idx];
+        pathDisplay.push(String(idx));
       }
-      // If object filter: e.g. id=4 or username=alice
+      // Filter array
       else if (val !== true) {
-        cursor = cursor.find(item => item && String(item[key]) === val);
+        stepLog(`-- Array filter: "${key}==${val}"`, undefined);
+        const prevCursor = cursor;
+        const filtered = cursor.find(item => item && String(item[key]) === val);
+        if (!filtered) stepLog(`[Warning] Array filter "${key}=${val}" not found!`, prevCursor, "warn");
+        cursor = filtered;
+        pathDisplay.push(`${key}=${val}`);
       } else {
-        // error? Can't filter array by bare 'address'
-        return undefined;
+        stepLog(`-- [Error] Cannot use property "${key}" with no value on array!`, cursor, "error");
+        cursor = undefined;
       }
     } else if (cursor && typeof cursor === 'object') {
-      // Go down object property
       if (key in cursor) {
+        stepLog(`-- Object property "${key}"`, cursor[key]);
         cursor = cursor[key];
+        pathDisplay.push(key);
       } else {
-        return undefined;
+        stepLog(`-- [FAIL] Property "${key}" not found in object. Keys: ${Object.keys(cursor).join(", ")}`, cursor, "warn");
+        cursor = undefined;
       }
     } else {
-      return undefined;
+      stepLog(`-- [FAIL] Cannot process param "${key}" on type: ${typeof cursor} (${String(cursor)})`, cursor, "error");
+      cursor = undefined;
     }
-    if (cursor === undefined) return undefined;
-  }
+    stepLog(`[Step ${stepIdx + 1}] Result after applying param:`, cursor);
+  });
+  
+  stepLog(`==== END QUERY / FINAL VALUE ====`, cursor, cursor !== undefined ? "result" : "warn");
   return cursor;
 }
 
+function escapeHtml(str) {
+  return str.replace(/[<>&]/g, s => ({"<":"&lt;","&": "&amp;",">":"&gt;"}[s]));
+}
+
 async function main() {
+  document.getElementById("log").innerHTML = "";
+  document.getElementById("output").innerHTML = "";
   const orderedParams = getOrderedParams();
   const fileParam = orderedParams.find(([k]) => k === 'file');
   if (!fileParam) {
-    document.body.innerHTML = '<div class="error">Missing <code>file</code> parameter in URL.</div>';
+    document.getElementById("output").innerHTML = '<div class="error">Missing <code>file</code> parameter in URL.</div>';
     return;
   }
   const fileValue = fileParam[1];
@@ -74,29 +108,25 @@ async function main() {
     const res = await fetch(jsonUrl);
     if (!res.ok) throw new Error("404");
     jsonData = await res.json();
+    stepLog(`[Loaded JSON] from "${jsonUrl}"`, jsonData);
   } catch {
-    document.body.innerHTML = `<div class="error">File not found or fetch failed. Attempted URL: <code>${jsonUrl}</code></div>`;
+    document.getElementById("output").innerHTML = `<div class="error">File not found or fetch failed. Attempted URL: <code>${jsonUrl}</code></div>`;
     return;
   }
   let result;
   try {
     result = queryByParamChain(jsonData, orderedParams);
   } catch (e) {
-    document.body.innerHTML = `<div class="error">Parse error: <code>${e.message}</code></div>`;
+    document.getElementById("output").innerHTML = `<div class="error">Parse error: <code>${e.message}</code></div>`;
     return;
   }
   if (result === undefined) {
     const q = orderedParams.filter(([k]) => k !== 'file').map(([k,v]) => v === true ? k : `${k}=${v}`).join("→");
-    document.body.innerHTML = `<div class="error">Segment not found for query: <code>${q}</code></div>`;
+    document.getElementById("output").innerHTML = `<div class="error">Segment not found for query: <code>${q}</code></div>`;
   } else {
-    document.body.innerHTML = `<pre>${escapeHtml(JSON.stringify(result, null, 2))}</pre>`;
+    document.getElementById("output").innerHTML = `<pre>${escapeHtml(JSON.stringify(result, null, 2))}</pre>`;
   }
 }
-
-function escapeHtml(str) {
-  return str.replace(/[<>&]/g, s => ({"<":"&lt;","&": "&amp;",">":"&gt;"}[s]));
-}
-
 main();
 </script>
 </body>
