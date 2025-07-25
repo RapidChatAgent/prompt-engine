@@ -1,0 +1,182 @@
+[
+  {
+    "id": 1,
+    "name": "Alice",
+    "username": "alice123",
+    "email": "alice@example.com",
+    "roles": ["admin", "editor"],
+    "active": true,
+    "profile": {
+      "age": 30,
+      "gender": "female",
+      "emails": [
+        {"address": "alice@workmail.com", "primary": true},
+        {"address": "alice@gmail.com", "primary": false}
+      ]
+    },
+    "address": {
+      "city": "New York",
+      "street": "1st Avenue",
+      "zip": "10001",
+      "location": {
+        "lat": 40.7121,
+        "lng": -74.0059
+      }
+    },
+    "orders": [
+      {
+        "id": 2001,
+        "total": 205,
+        "date": "2024-05-23",
+        "items": [
+          {"name": "Laptop", "qty": 1, "price": 200},
+          {"name": "Mouse", "qty": 1, "price": 5}
+        ],
+        "shipped": true
+      },
+      {
+        "id": 2002,
+        "total": 45,
+        "date": "2024-06-10",
+        "items": [
+          {"name": "Keyboard", "qty": 1, "price": 45}
+        ],
+        "shipped": false
+      }
+    ]
+  },
+  {
+    "id": 2,
+    "name": "Bob",
+    "username": "bob_the_builder",
+    "email": "bob.b@example.com",
+    "roles": ["user", "reviewer"],
+    "active": false,
+    "profile": {
+      "age": 44,
+      "gender": "male",
+      "emails": [
+        {"address": "bob@company.com", "primary": true}
+      ]
+    },
+    "address": {
+      "city": "Boston",
+      "street": "2nd Street",
+      "zip": "02108",
+      "location": {
+        "lat": 42.3601,
+        "lng": -71.0589
+      }
+    },
+    "orders": [
+      {
+        "id": 2101,
+        "total": 80,
+        "date": "2024-03-11",
+        "items": [
+          {"name": "Office Chair", "qty": 1, "price": 80}
+        ],
+        "shipped": true
+      }
+    ]
+  },
+  {
+    "id": 3,
+    "name": "Carol",
+    "username": "carolking",
+    "email": "carol@abc.net",
+    "roles": ["user"],
+    "active": true,
+    "profile": {
+      "age": 27,
+      "gender": "female",
+      "emails": [
+        {"address": "carol.work@company.com", "primary": true},
+        {"address": "carol.personal@gmail.com", "primary": false}
+      ]
+    },
+    "address": {
+      "city": "San Francisco",
+      "street": "3rd Blvd",
+      "zip": "94016",
+      "location": {
+        "lat": 37.7749,
+        "lng": -122.4194
+      }
+    },
+    "orders": [
+      {
+        "id": 2201,
+        "total": 1600,
+        "date": "2024-01-20",
+        "items": [
+          {"name": "Monitor", "qty": 2, "price": 700},
+          {"name": "HDMI Cable", "qty": 1, "price": 20},
+          {"name": "USB Hub", "qty": 1, "price": 20}
+        ],
+        "shipped": true
+      }
+    ]
+  },
+  {
+    "id": 4,
+    "name": "Dan",
+    "username": "dan_dev",
+    "email": "dan.dev@techie.com",
+    "roles": ["editor"],
+    "active": true,
+    "profile": {
+      "age": 36,
+      "gender": "male",
+      "emails": [
+        {"address": "dan.coder@company.com", "primary": true}
+      ]
+    },
+    "address": {
+      "city": "Austin",
+      "street": "Tech Drive",
+      "zip": "73301",
+      "location": {
+        "lat": 30.2672,
+        "lng": -97.7431
+      }
+    },
+    "orders": [
+      {
+        "id": 2301,
+        "total": 15,
+        "date": "2024-02-14",
+        "items": [
+          {"name": "Mousepad", "qty": 1, "price": 15}
+        ],
+        "shipped": false
+      }
+    ]
+  },
+  {
+    "id": 5,
+    "name": "Ellen",
+    "username": "ellen_writes",
+    "email": "ellen.writes@literary.com",
+    "roles": ["user", "writer"],
+    "active": true,
+    "profile": {
+      "age": 42,
+      "gender": "female",
+      "emails": [
+        {"address": "ellen.author@literary.com", "primary": true},
+        {"address": "ellen.freelance@gmail.com", "primary": false}
+      ]
+    },
+    "address": {
+      "city": "Seattle",
+      "street": "Rainy St.",
+      "zip": "98101",
+      "location": {
+        "lat": 47.6062,
+        "lng": -122.3321
+      }
+    },
+    "orders": []
+  }
+]
