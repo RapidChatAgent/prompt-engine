@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Data API</title>
+  <script src="query.js"></script>
+</head>
+<body>
+<script>
+async function apiMain() {
+  const params = getOrderedParams();
+  const file = params.find(([k]) => k === 'file');
+  if (!file) {
+    sendRawError('Missing file parameter'); return;
+  }
+  const jsonUrl = "./data/" + encodeURIComponent(file[1]) + ".json";
+  let jsonData;
+  try {
+    const res = await fetch(jsonUrl);
+    if (!res.ok) throw new Error("404");
+    jsonData = await res.json();
+  } catch {
+    sendRawError("File not found or fetch failed: " + jsonUrl);
+    return;
+  }
+  try {
+    const result = queryByParamChain(jsonData, params);
+    if (result === undefined) sendRawError("Segment not found for query: " + params.map(([k,v]) => v===true?k:k+"="+v).join("&"));
+    else sendRaw(result);
+  } catch(e) {
+    sendRawError("Parse error: " + e.message);
+  }
+}
+
+// Send just JSON, with correct content-type if possible
+function sendRaw(obj) {
+  var json = JSON.stringify(obj, null, 2);
+  // For browsers and Postman: try to set Content-Type
+  if (document && document.contentType !== undefined) document.contentType = "application/json";
+  // Emulate proper header for Postman/curl (not perfect in static HTML, but works for Fetch/XHR)
+  document.body.innerText = json;
+}
+
+// For errors, return as JSON error object only
+function sendRawError(msg) {
+  if (document && document.contentType !== undefined) document.contentType = "application/json";
+  document.body.innerText = JSON.stringify({error: msg});
+}
+
+apiMain();
+</script>
+</body>
+</html>
