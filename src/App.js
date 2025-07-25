@@ -1,20 +1,18 @@
 import React, { useEffect, useState } from "react";
 
-// Helper function to parse params in order
+// Parse parameters in order
 function getOrderedParams() {
-  const url = window.location.search || "";
   const urlParams = [];
-  url.replace(/^\?/, "")
-    .split("&")
-    .forEach((pair) => {
-      if (!pair) return;
-      const [k, v] = pair.split("=").map(decodeURIComponent);
-      if (k) urlParams.push([k, v === undefined ? true : v]);
-    });
+  const q = window.location.search.replace(/^\?/, "");
+  q.split("&").forEach((pair) => {
+    if (!pair) return;
+    const [k, v] = pair.split("=").map(decodeURIComponent);
+    if (k) urlParams.push([k, v === undefined ? true : v]);
+  });
   return urlParams;
 }
 
-// Query logic, returns {result, logs} for step-by-step
+// Core query logic (returns result, logs per step)
 function queryByParamChain(data, orderedParams) {
   const logsArr = [];
   let cursor = data;
@@ -56,7 +54,7 @@ function queryByParamChain(data, orderedParams) {
         cursor = cursor[idx];
         pathDisplay.push(String(idx));
       }
-      // Array filter (e.g. id=4)
+      // Array filter
       else if (val !== true) {
         logsArr.push({
           msg: `-- Array filter: "${key}==${val}"`,
@@ -133,7 +131,6 @@ function queryByParamChain(data, orderedParams) {
   return { result: cursor, logs: logsArr };
 }
 
-// Collapsible debug step component
 function DebugStep({ step, msg, data, kind }) {
   const [open, setOpen] = React.useState(false);
   const baseClass =
@@ -172,10 +169,11 @@ function App() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    setError(null);
+    setResult(undefined);
+    setLogs([]);
+    // Note: This runs only ONCE (empty deps array), which is correct for a tool that always reloads on URL change.
     async function run() {
-      setError(null);
-      setResult(undefined);
-      setLogs([]);
       const orderedParams = getOrderedParams();
       const fileParam = orderedParams.find(([k]) => k === "file");
       if (!fileParam) {
@@ -204,10 +202,9 @@ function App() {
       }
     }
     run();
-    // re-run on URL change
-  }, [window.location.search]);
+    // eslint-disable-next-line
+  }, []);
 
-  // On error: Show error + logs. On success: Show just result.
   return (
     <div style={{ padding: 28, maxWidth: 980, margin: "0 auto" }}>
       <h2>JSON Param Query Tool <span style={{fontSize:'0.7em'}}>(React)</span></h2>
@@ -246,10 +243,3 @@ function App() {
         }
         .arrow {font-size:1.2em; margin-right:0.3em; transition:transform 0.1s;}
         .stepbody {padding:0 1.2em 0.75em 1.5em;}
-        .result {margin-top:1.5em;}
-      `}</style>
-    </div>
-  );
-}
-
-export default App;
