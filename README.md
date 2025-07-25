@@ -1,129 +1,157 @@
-# prompt-engine
+# GitHub JSON Segment Query Tool
 
+A **static HTML+JavaScript** tool for querying specific segments of large JSON files on GitHub Pages.  
+No backend, no server, just drop `index.html` in your repository root and JSON files in `/data`!
 
-
-## 📖 Example API Calls
-
-This tool behaves like a simple GET API endpoint:  
-**Base URL:**  
-```
-https://rapidchatagent.github.io/prompt-engine/data
-```
-
-### **Parameters**
-
-- `file` – the base filename (excluding `.json`)
-- `path` – the segment to extract, using dot/array notation (optional)
+**Live URL Example:**  
+[https://rapidchatagent.github.io/prompt-engine](https://rapidchatagent.github.io/prompt-engine)
 
 ---
 
-### 🔹 **Get an entire file**
-**Request:**  
+## ✨ Features
+
+- **Static and Serverless:** No backend code, works entirely in the browser.
+- **Easy file management:** Place your data as `.json` files in `/data`.
+- **Flexible deep querying:**  
+  - Dot notation: `profile.name`
+  - Array index: `users[3].address`
+  - Array filter: `users[id=42].address.city`
+  - Chain and nest any way you like!
+- **User-friendly error handling** for missing files and segments.
+
+---
+
+## 🚀 How to Use
+
+### 1. **Preparing Your Repository**
+
+- Place all your JSON files inside a `data/` folder in your repository root.
+- Place `index.html` (from this repository) in your repository root.
+
+**Example structure:**
 ```
-GET https://rapidchatagent.github.io/prompt-engine/data?file=users
+prompt-engine/
+  index.html
+  data/
+    users.json
+    products.json
+    bigfile.json
 ```
-**Response:**
+
+---
+
+### 2. **Accessing Data in the Browser**
+
+Visit:
+```
+https://rapidchatagent.github.io/prompt-engine?file=users
+```
+Add a `path` parameter to extract a specific value/segment (see below).
+
+---
+
+### 3. **Query Parameters**
+
+- `file` – The filename (without `.json`) in the `/data` folder.
+- `path` – (optional) Flexible deep-access path string.
+
+---
+
+### 4. **Examples**
+
+| Purpose                  | Example URL                                                                                 | Result (if using sample data below) |
+|--------------------------|--------------------------------------------------------------------------------------------|-------------------------------------|
+| Get all users            | `?file=users`                                                                              | Array of users                      |
+| Get Alice's city         | `?file=users&path=[id=1].address.city`                                                     | `"New York"`                        |
+| Get Bob's order ID       | `?file=users&path=[id=2].orders[0].id`                                                     | `103`                               |
+| Get first product's name | `?file=products&path=products[0].name`                                                     | _Depends on your data_              |
+| Get entire big file      | `?file=bigfile`                                                                            | _Entire `bigfile.json`_             |
+| Not found example        | `?file=users&path=[id=100].name`                                                           | "Segment not found..."              |
+
+Usually accessed like:
+```
+https://rapidchatagent.github.io/prompt-engine?file=users&path=[id=2].orders[0].items[0].name
+```
+
+---
+
+### 5. **Path Syntax**
+
+- `a.b.c` — access property `c` inside `b` inside `a`
+- `array[3]` — access 4th element in `array`
+- `array[key=value]` — find first object in `array` with `object[key]==value`
+- Combine: `people[id=5].contacts[0].email`
+- Nest as deep as needed
+
+---
+
+### 6. **Sample JSON Data**
+
+For `/data/users.json`:
 ```json
 [
   {
     "id": 1,
     "name": "Alice",
-    "address": {
-      "city": "New York"
-    }
+    "address": { "city": "New York", "zip": "10001" },
+    "orders": [
+      { "id": 101, "items": [ { "name": "Widget", "price": 10 } ] }
+    ]
   },
   {
     "id": 2,
     "name": "Bob",
-    "address": {
-      "city": "Boston"
-    }
+    "address": { "city": "Boston", "zip": "02108" },
+    "orders": [
+      { "id": 103, "items": [ { "name": "Chair", "price": 50 } ] }
+    ]
   }
 ]
 ```
 
 ---
 
-### 🔹 **Get a nested value by path**
-**Request:**  
-```
-GET https://rapidchatagent.github.io/prompt-engine/data?file=users&path=0.address.city
-```
-**Response:**
-```json
-"New York"
-```
+## 📝 Notes
+
+- **This is a read-only tool.**  
+  It is fully front-end, reads static files only, and cannot modify data.
+- **All files must be in `/data`**.  
+  The path to each file is generated as `./data/{file}.json` relative to the site root.
+- **Works on GitHub Pages and any static web host!**
+- **CORS:** No issues, since all is same-origin (the same GitHub Pages site).
 
 ---
 
-### 🔹 **Find an object in an array**
-**Request:**  
-```
-GET https://rapidchatagent.github.io/prompt-engine/data?file=users&path=users[id=2].address.city
-```
-Or if the array is at the root:
-```
-GET https://rapidchatagent.github.io/prompt-engine/data?file=users&path=[id=2].address.city
-```
-**Response:**
-```json
-"Boston"
-```
+## 🧑‍💻 Customization
+
+- _To change the data folder:_  
+  Adjust the JS in `index.html`  
+  (by default it uses `./data/`).
+- _To improve user interface:_  
+  Edit HTML/CSS in `index.html`.
 
 ---
 
-### 🔹 **Chain filters and indices**
-**Request:**  
-(Suppose your JSON has nested arrays, e.g. orders per user)
-```
-GET https://rapidchatagent.github.io/prompt-engine/data?file=users&path=users[id=1].orders[3].items[name=Laptop].price
-```
+## 🚧 Troubleshooting
+
+- **404 or File Not Found:**  
+  Make sure the file exists at `/data/{file}.json` and is committed to the `main` branch of your repo.
+- **Segment not found:**  
+  Check your `path` syntax and ensure it matches data structure.
 
 ---
 
-### 🔹 **Handle missing file**
-**Request:**  
-```
-GET https://rapidchatagent.github.io/prompt-engine/data?file=notfound
-```
-**Response:**
-```json
-{
-  "error": "File not found"
-}
-```
-*(For display, the web page will show a user-friendly error instead of JSON.)*
+## 📄 License
+
+MIT
 
 ---
 
-### 🔹 **Handle missing segment**
-**Request:**  
-```
-GET https://rapidchatagent.github.io/prompt-engine/data?file=users&path=users[id=99].address.city
-```
-**Response:**
-```json
-{
-  "error": "Segment not found"
-}
-```
-*(For display, the web page will show a user-friendly error instead of JSON.)*
+## 🙏 Credits
+
+- [rapidchatagent](https://github.com/rapidchatagent) — repo owner & design
 
 ---
 
-## ℹ️ **Notes**
+### 🎯 Enjoy querying your JSON data with no server and no fuss!
 
-- This API is read-only and intended for use in a browser, but you can fetch the URLs from any client (script, tool, or browser tab).
-- If you need JSON content-type in the response (for script use), you could modify the HTML, but by default, this tool displays JSON in the web page.
-
----
-
-## **Quick Reference Table**
-
-| Purpose                    | Example API URL                                                                                                             | Typical Result             |
-|----------------------------|-----------------------------------------------------------------------------------------------------------------------------|----------------------------|
-| Get entire `users.json`    | https://rapidchatagent.github.io/prompt-engine/data?file=users                                                             | `[ ... ]`                  |
-| Get 2nd user's name        | https://rapidchatagent.github.io/prompt-engine/data?file=users&path=1.name                                                 | `"Bob"`                    |
-| Find by id in array        | https://rapidchatagent.github.io/prompt-engine/data?file=users&path=[id=2].address.city                                    | `"Boston"`                 |
-| File not found             | https://rapidchatagent.github.io/prompt-engine/data?file=notfound                                                          | Error message              |
-| Segment not found          | https://rapidchatagent.github.io/prompt-engine/data?file=users&path=doesnot.exist                                          | Error message              |
