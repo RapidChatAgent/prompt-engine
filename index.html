@@ -8,7 +8,36 @@
     .error { color: #c00; font-family: ui-monospace, monospace; padding: 1em; }
     .debug { font-size: 1em; font-family: ui-monospace, monospace; background: #fff4cd; border-radius: 6px; padding: 0.6em; color: #624700;}
     .warn { background: #ffe4e0; color: #9b3939;}
-    .result { margin-top: 1.5em; }
+    .collapse-btn {
+      font-family: inherit;
+      background: #eee;
+      border: 1px solid #bbb;
+      color: #333;
+      font-size: 1em;
+      padding: 0.25em 0.7em;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-bottom: 0.5em;
+      margin-top: 1em;
+      display:inline-block;
+    }
+    #collapse-wrap {
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      background: #faf8eb;
+      margin-bottom: 0.8em;
+      max-height: 500px;
+      overflow-y: auto;
+      transition: max-height 0.2s;
+    }
+    #collapse-wrap.collapsed {
+      max-height: 0 !important;
+      overflow: hidden !important;
+      padding: 0 !important;
+      margin-bottom: 0 !important;
+      border: none;
+      background: none;
+    }
   </style>
 </head>
 <body>
@@ -18,7 +47,7 @@
 // Helper: output log visually and to console
 function stepLog(msg, data, kind="debug", logsArr) {
   const html = `<div class="${kind}"><b>${msg}</b>${data!==undefined ? `<br><code>${escapeHtml(JSON.stringify(data,null,2))}</code>` : ''}</div>`;
-  if (logsArr) logsArr.push(html); // only collect to buffer, not always display
+  if (logsArr) logsArr.push(html);
 
   if(kind==="error") console.error(msg, data);
   else if(kind==="warn") console.warn(msg, data);
@@ -93,6 +122,18 @@ function escapeHtml(str) {
   return str.replace(/[<>&]/g, s => ({"<":"&lt;","&": "&amp;",">":"&gt;"}[s]));
 }
 
+// Simple toggling for collapse
+function makeCollapse(logHTML) {
+  return `
+    <button class="collapse-btn" onclick="
+      var c=document.getElementById('collapse-wrap');
+      c.classList.toggle('collapsed');
+      this.textContent = c.classList.contains('collapsed')? '[+] Show Debug Trace':'[-] Hide Debug Trace';
+    ">[+] Show Debug Trace</button>
+    <div id="collapse-wrap" class="collapsed">${logHTML}</div>
+  `;
+}
+
 async function main() {
   document.getElementById("log").innerHTML = "";
   document.getElementById("output").innerHTML = "";
@@ -124,12 +165,11 @@ async function main() {
     return;
   }
   if (result === undefined) {
-    // On error, show all debugging logs
-    document.getElementById("log").innerHTML = logsArr.join("");
+    // On error, show debug logs in collapsible
+    document.getElementById("log").innerHTML = makeCollapse(logsArr.join(""));
     const q = orderedParams.filter(([k]) => k !== 'file').map(([k,v]) => v === true ? k : `${k}=${v}`).join("&");
     document.getElementById("output").innerHTML = `<div class="error">Segment not found for query: <code>${q}</code></div>`;
   } else {
-    // If result, show ONLY the answer
     document.getElementById("log").innerHTML = '';
     document.getElementById("output").innerHTML = `<pre>${escapeHtml(JSON.stringify(result, null, 2))}</pre>`;
   }
