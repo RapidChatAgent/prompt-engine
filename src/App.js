@@ -243,3 +243,10 @@ function App() {
         }
         .arrow {font-size:1.2em; margin-right:0.3em; transition:transform 0.1s;}
         .stepbody {padding:0 1.2em 0.75em 1.5em;}
+        .result {margin-top:1.5em;}
+      `}</style>
+    </div>
+  );
+}
+
+export default App;
