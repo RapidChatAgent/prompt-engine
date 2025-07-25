@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>GitHub JSON Segment Query</title>
+  <title>GitHub JSON Segment Query Tool</title>
   <style>
     body { font-family: ui-monospace, monospace; background: #f9f9f9; color: #222; }
     pre { background: #eee; border-radius: 6px; padding: 1em; }
@@ -10,17 +10,14 @@
 </head>
 <body>
   <h2>JSON Segment Query Tool</h2>
-  <div>Usage: <code>?file=FILENAME&path=YOUR.PATH.HERE</code></div>
+  <div>Usage: <code>?file=FILENAME&amp;path=YOUR.PATH.HERE</code></div>
   <ul>
-    <li>file: file name (no .json) in your data folder</li>
+    <li>file: file name (no .json) in your <strong>data</strong> folder</li>
     <li>path: deep path, including array filters like <code>users[id=42].address.city</code></li>
   </ul>
   <pre id="output">Loading...</pre>
 
 <script>
-// --------- Config: Folder path to your data files
-const GITHUB_DATA_RAW_PREFIX = "https://rapidchatagent.github.io/prompt-engine/data/";
-
 // --------- Get parameters from URL
 function getParams() {
   const params = {};
@@ -62,7 +59,8 @@ async function main() {
     output.innerHTML = "<span class='error'>Missing <code>file</code> parameter in URL.</span>";
     return;
   }
-  const jsonUrl = GITHUB_DATA_RAW_PREFIX + encodeURIComponent(params.file) + ".json";
+  // Use relative path for data loading!
+  const jsonUrl = "./data/" + encodeURIComponent(params.file) + ".json";
 
   let jsonData;
   try {
