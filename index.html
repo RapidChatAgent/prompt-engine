@@ -1,50 +1,40 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>GitHub JSON Segment Query Tool</title>
+  <meta charset="UTF-8">
+  <title>JSON Query Result</title>
   <style>
-    body { font-family: ui-monospace, monospace; background: #f9f9f9; color: #222; }
-    pre { background: #eee; border-radius: 6px; padding: 1em; }
-    .error { color: #c00; }
+    pre { font-family: ui-monospace, monospace; background: #f9f9f9; color: #222; border-radius: 6px; padding: 1em; white-space: pre-wrap;}
+    .error { color: #c00; font-family: ui-monospace, monospace; }
   </style>
 </head>
 <body>
-  <h2>JSON Segment Query Tool</h2>
-  <div>Usage: <code>?file=FILENAME&amp;path=YOUR.PATH.HERE</code></div>
-  <ul>
-    <li>file: file name (no .json) in your <strong>data</strong> folder</li>
-    <li>path: deep path, including array filters like <code>users[id=42].address.city</code></li>
-  </ul>
-  <pre id="output">Loading...</pre>
-
 <script>
-// --------- Get parameters from URL
+// ---- Get params from URL ----
 function getParams() {
   const params = {};
-  window.location.search.replace(/[?&]+([^=&]+)=([^&]*)/gi, (_, key, value) => params[key] = decodeURIComponent(value));
+  window.location.search.replace(/[?&]+([^=&]+)=([^&]*)/gi, (_, k, v) => params[k] = decodeURIComponent(v));
   return params;
 }
 
-// --------- Advanced Segment Getter with Array Filter
-function getAdvancedSegment(obj, path) {
+// ---- Flexible Segment Getter: supports "id=2" as filter ----
+function getFlexibleSegment(obj, path) {
   if (!path) return obj;
-  const parts = path.match(/([^[.\]]+(\[[^\]]+\])?)/g);
+  const parts = path.split('.');
   let cursor = obj;
   for (let part of parts) {
-    // Array filter: key[foo=val]
-    let arrMatch = part.match(/^([^\[]+)\[([^\]=]+)=([^\]]+)\]$/);
-    if (arrMatch) {
-      let [_, arrKey, filterKey, filterVal] = arrMatch;
-      filterVal = /^\d+$/.test(filterVal) ? Number(filterVal) : filterVal; // number or string
-      cursor = cursor[arrKey];
-      if (!Array.isArray(cursor)) return undefined;
-      cursor = cursor.find(item => item && item[filterKey] == filterVal);
-    } else if (/^(.+)\[(\d+)\]$/.test(part)) { // key[index]
-      let [_, arrKey, idx] = part.match(/^(.+)\[(\d+)\]$/);
-      cursor = cursor[arrKey];
-      cursor = Array.isArray(cursor) ? cursor[Number(idx)] : undefined;
-    } else {
+    const filterMatch = part.match(/^(\w+)\=(.+)$/);
+    if (Array.isArray(cursor) && filterMatch) {
+      // Filter array by key=value
+      const key = filterMatch[1], val = filterMatch[2];
+      cursor = cursor.find(item => item && String(item[key]) === val);
+    } else if (Array.isArray(cursor) && /^\d+$/.test(part)) {
+      // Numeric index in array
+      cursor = cursor[Number(part)];
+    } else if (cursor && Object.prototype.hasOwnProperty.call(cursor, part)) {
       cursor = cursor[part];
+    } else {
+      return undefined;
     }
     if (cursor === undefined) return undefined;
   }
@@ -53,40 +43,43 @@ function getAdvancedSegment(obj, path) {
 
 async function main() {
   const params = getParams();
-  const output = document.getElementById('output');
-
+  // Basic validation
   if (!params.file) {
-    output.innerHTML = "<span class='error'>Missing <code>file</code> parameter in URL.</span>";
+    document.body.innerHTML = '<div class="error">Missing <code>file</code> parameter in URL.</div>';
     return;
   }
-  // Use relative path for data loading!
   const jsonUrl = "./data/" + encodeURIComponent(params.file) + ".json";
-
   let jsonData;
   try {
     const res = await fetch(jsonUrl);
     if (!res.ok) throw new Error("404");
     jsonData = await res.json();
-  } catch (e) {
-    output.innerHTML = "<span class='error'>File not found or fetch failed.<br>Attempted URL: "
-      + jsonUrl + "</span>";
+  } catch {
+    document.body.innerHTML = `<div class="error">File not found or fetch failed. Attempted URL: <code>${jsonUrl}</code></div>`;
     return;
   }
   let result;
   try {
-    result = getAdvancedSegment(jsonData, params.path);
+    result = getFlexibleSegment(jsonData, params.path);
   } catch (e) {
-    output.innerHTML = "<span class='error'>Invalid path or parse error: "
-      + e.message + "</span>";
+    document.body.innerHTML = `<div class="error">Invalid path or parse error: <code>${e.message}</code></div>`;
     return;
   }
   if (result === undefined) {
-    output.innerHTML = "<span class='error'>Segment not found for path: <code>" +
-      (params.path || "") + "</code></span>";
+    document.body.innerHTML = `<div class="error">Segment not found for path: <code>${params.path || ""}</code></div>`;
   } else {
-    output.textContent = JSON.stringify(result, null, 2);
+    // Overwrite the page with only this JSON:
+    document.body.innerHTML = `<pre>${escapeHtml(JSON.stringify(result, null, 2))}</pre>`;
+    // Optionally force pretty printing in browser, and easy to parse in Java.
   }
 }
+
+function escapeHtml(str) {
+  return str.replace(/[<>&]/g, function (s) {
+    return {"<":"&lt;","&": "&amp;",">":"&gt;"}[s];
+  });
+}
+
 main();
 </script>
 </body>
