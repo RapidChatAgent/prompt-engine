@@ -1,0 +1,48 @@
+[
+  {
+    "id": 1,
+    "name": "Alice",
+    "email": "alice@example.com",
+    "address": {
+      "city": "New York",
+      "street": "1st Avenue",
+      "zip": "10001"
+    },
+    "orders": [
+      {
+        "id": 101,
+        "date": "2023-11-14",
+        "items": [
+          {"name": "Laptop", "price": 1200},
+          {"name": "Mouse", "price": 25}
+        ]
+      },
+      {
+        "id": 102,
+        "date": "2023-12-01",
+        "items": [
+          {"name": "Keyboard", "price": 45}
+        ]
+      }
+    ]
+  },
+  {
+    "id": 2,
+    "name": "Bob",
+    "email": "bob@example.com",
+    "address": {
+      "city": "Boston",
+      "street": "2nd Street",
+      "zip": "02108"
+    },
+    "orders": [
+      {
+        "id": 103,
+        "date": "2024-01-11",
+        "items": [
+          {"name": "Chair", "price": 80}
+        ]
+      }
+    ]
+  }
+]
