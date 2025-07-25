@@ -2,37 +2,56 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>JSON Query Result</title>
+  <title>JSON Query Result by Params</title>
   <style>
-    pre { font-family: ui-monospace, monospace; background: #f9f9f9; color: #222; border-radius: 6px; padding: 1em; white-space: pre-wrap;}
+    pre { font-family: ui-monospace, monospace; background: #f9f9f9; color: #222; border-radius: 6px; padding: 1em; }
     .error { color: #c00; font-family: ui-monospace, monospace; }
   </style>
 </head>
 <body>
 <script>
-// ---- Get params from URL ----
-function getParams() {
-  const params = {};
-  window.location.search.replace(/[?&]+([^=&]+)=([^&]*)/gi, (_, k, v) => params[k] = decodeURIComponent(v));
-  return params;
+// --- Parse parameters in order of appearance ---
+function getOrderedParams() {
+  const urlParams = [];
+  const q = window.location.search.substring(1);
+  q.split('&').forEach(pair => {
+    if (!pair) return;
+    const [k, v] = pair.split('=').map(decodeURIComponent);
+    if (k) urlParams.push([k, v === undefined ? true : v]);
+  });
+  return urlParams;
 }
 
-// ---- Flexible Segment Getter: supports "id=2" as filter ----
-function getFlexibleSegment(obj, path) {
-  if (!path) return obj;
-  const parts = path.split('.');
-  let cursor = obj;
-  for (let part of parts) {
-    const filterMatch = part.match(/^(\w+)\=(.+)$/);
-    if (Array.isArray(cursor) && filterMatch) {
-      // Filter array by key=value
-      const key = filterMatch[1], val = filterMatch[2];
-      cursor = cursor.find(item => item && String(item[key]) === val);
-    } else if (Array.isArray(cursor) && /^\d+$/.test(part)) {
-      // Numeric index in array
-      cursor = cursor[Number(part)];
-    } else if (cursor && Object.prototype.hasOwnProperty.call(cursor, part)) {
-      cursor = cursor[part];
+// --- Query JSON by sequential params ---
+function queryByParamChain(data, orderedParams) {
+  // Find 'file' param and validate
+  const fileParam = orderedParams.find(([k]) => k === 'file');
+  if (!fileParam) throw new Error("Missing 'file' parameter");
+  // Remove 'file' for traversal
+  const steps = orderedParams.filter(([k]) => k !== 'file');
+
+  let cursor = data;
+  for (const [key, val] of steps) {
+    if (Array.isArray(cursor)) {
+      // If param is a number: index into array
+      if (/^\d+$/.test(val === true ? key : val)) {
+        const idx = Number(val === true ? key : val);
+        cursor = cursor[idx];
+      }
+      // If object filter: e.g. id=4 or username=alice
+      else if (val !== true) {
+        cursor = cursor.find(item => item && String(item[key]) === val);
+      } else {
+        // error? Can't filter array by bare 'address'
+        return undefined;
+      }
+    } else if (cursor && typeof cursor === 'object') {
+      // Go down object property
+      if (key in cursor) {
+        cursor = cursor[key];
+      } else {
+        return undefined;
+      }
     } else {
       return undefined;
     }
@@ -42,13 +61,14 @@ function getFlexibleSegment(obj, path) {
 }
 
 async function main() {
-  const params = getParams();
-  // Basic validation
-  if (!params.file) {
+  const orderedParams = getOrderedParams();
+  const fileParam = orderedParams.find(([k]) => k === 'file');
+  if (!fileParam) {
     document.body.innerHTML = '<div class="error">Missing <code>file</code> parameter in URL.</div>';
     return;
   }
-  const jsonUrl = "./data/" + encodeURIComponent(params.file) + ".json";
+  const fileValue = fileParam[1];
+  const jsonUrl = "./data/" + encodeURIComponent(fileValue) + ".json";
   let jsonData;
   try {
     const res = await fetch(jsonUrl);
@@ -60,24 +80,21 @@ async function main() {
   }
   let result;
   try {
-    result = getFlexibleSegment(jsonData, params.path);
+    result = queryByParamChain(jsonData, orderedParams);
   } catch (e) {
-    document.body.innerHTML = `<div class="error">Invalid path or parse error: <code>${e.message}</code></div>`;
+    document.body.innerHTML = `<div class="error">Parse error: <code>${e.message}</code></div>`;
     return;
   }
   if (result === undefined) {
-    document.body.innerHTML = `<div class="error">Segment not found for path: <code>${params.path || ""}</code></div>`;
+    const q = orderedParams.filter(([k]) => k !== 'file').map(([k,v]) => v === true ? k : `${k}=${v}`).join("→");
+    document.body.innerHTML = `<div class="error">Segment not found for query: <code>${q}</code></div>`;
   } else {
-    // Overwrite the page with only this JSON:
     document.body.innerHTML = `<pre>${escapeHtml(JSON.stringify(result, null, 2))}</pre>`;
-    // Optionally force pretty printing in browser, and easy to parse in Java.
   }
 }
 
 function escapeHtml(str) {
-  return str.replace(/[<>&]/g, function (s) {
-    return {"<":"&lt;","&": "&amp;",">":"&gt;"}[s];
-  });
+  return str.replace(/[<>&]/g, s => ({"<":"&lt;","&": "&amp;",">":"&gt;"}[s]));
 }
 
 main();
