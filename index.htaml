@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>GitHub JSON Segment Query</title>
+  <style>
+    body { font-family: ui-monospace, monospace; background: #f9f9f9; color: #222; }
+    pre { background: #eee; border-radius: 6px; padding: 1em; }
+    .error { color: #c00; }
+  </style>
+</head>
+<body>
+  <h2>JSON Segment Query Tool</h2>
+  <div>Usage: <code>?file=FILENAME&path=YOUR.PATH.HERE</code></div>
+  <ul>
+    <li>file: file name (no .json) in your data folder</li>
+    <li>path: deep path, including array filters like <code>users[id=42].address.city</code></li>
+  </ul>
+  <pre id="output">Loading...</pre>
+
+<script>
+// --------- Config: Folder path to your data files
+const GITHUB_DATA_RAW_PREFIX = "/";
+// Example:  https://raw.githubusercontent.com/username/repo/main/data/
+
+// --------- Get parameters from URL
+function getParams() {
+  const params = {};
+  window.location.search.replace(/[?&]+([^=&]+)=([^&]*)/gi, (_, key, value) => params[key] = decodeURIComponent(value));
+  return params;
+}
+
+// --------- Advanced Segment Getter with Array Filter
+function getAdvancedSegment(obj, path) {
+  if (!path) return obj;
+  const parts = path.match(/([^[.\]]+(\[[^\]]+\])?)/g);
+  let cursor = obj;
+  for (let part of parts) {
+    // Array filter: key[foo=val]
+    let arrMatch = part.match(/^([^\[]+)\[([^\]=]+)=([^\]]+)\]$/);
+    if (arrMatch) {
+      let [_, arrKey, filterKey, filterVal] = arrMatch;
+      filterVal = /^\d+$/.test(filterVal) ? Number(filterVal) : filterVal; // number or string
+      cursor = cursor[arrKey];
+      if (!Array.isArray(cursor)) return undefined;
+      cursor = cursor.find(item => item && item[filterKey] == filterVal);
+    } else if (/^(.+)\[(\d+)\]$/.test(part)) { // key[index]
+      let [_, arrKey, idx] = part.match(/^(.+)\[(\d+)\]$/);
+      cursor = cursor[arrKey];
+      cursor = Array.isArray(cursor) ? cursor[Number(idx)] : undefined;
+    } else {
+      cursor = cursor[part];
+    }
+    if (cursor === undefined) return undefined;
+  }
+  return cursor;
+}
+
+async function main() {
+  const params = getParams();
+  const output = document.getElementById('output');
+
+  if (!params.file) {
+    output.innerHTML = "<span class='error'>Missing <code>file</code> parameter in URL.</span>";
+    return;
+  }
+  const jsonUrl = GITHUB_DATA_RAW_PREFIX + encodeURIComponent(params.file) + ".json";
+
+  let jsonData;
+  try {
+    const res = await fetch(jsonUrl);
+    if (!res.ok) throw new Error("404");
+    jsonData = await res.json();
+  } catch (e) {
+    output.innerHTML = "<span class='error'>File not found or fetch failed.<br>Attempted URL: "
+      + jsonUrl + "</span>";
+    return;
+  }
+  let result;
+  try {
+    result = getAdvancedSegment(jsonData, params.path);
+  } catch (e) {
+    output.innerHTML = "<span class='error'>Invalid path or parse error: "
+      + e.message + "</span>";
+    return;
+  }
+  if (result === undefined) {
+    output.innerHTML = "<span class='error'>Segment not found for path: <code>" +
+      (params.path || "") + "</code></span>";
+  } else {
+    output.textContent = JSON.stringify(result, null, 2);
+  }
+}
+main();
+</script>
+</body>
+</html>
